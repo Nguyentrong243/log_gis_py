@@ -1,0 +1,184 @@
+<!doctype html>
+<html>
+  <head>
+    <title>GIS Logistics Map</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <style>
+      #map {
+        height: 600px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>🚚 GIS Logistics System</h2>
+    <h3 id="status">Trạng thái: Đang chờ...</h3>
+
+    <button onclick="runAll()">Start</button>
+    <button onclick="location.reload()">Reset</button>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <script>
+
+            // ================= MAP =================
+            var map = L.map('map').setView([10.7769, 106.7009], 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: 'Map data © OpenStreetMap'
+            }).addTo(map);
+
+            // click lấy tọa độ
+            map.on('click', function(e) {
+                console.log("Lat:", e.latlng.lat, "Lng:", e.latlng.lng);
+            });
+
+            // ================= ICON =================
+            var warehouseIcon = L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+                iconSize: [35, 35]
+            });
+
+            var orderIcon = L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/1046/1046857.png',
+                iconSize: [30, 30]
+            });
+
+            var vehicleIcon = L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/1995/1995470.png',
+                iconSize: [40, 40]
+            });
+
+            // ================= DATA =================
+
+            // 🏢 Warehouses
+            var warehouses = [];
+            {% for w in warehouses %}
+            var wLatLng = [{{ w.lat }}, {{ w.lng }}];
+            warehouses.push(wLatLng);
+
+            L.marker(wLatLng, {icon: warehouseIcon})
+                .addTo(map)
+                .bindPopup("🏢 {{ w.name }}");
+            {% endfor %}
+
+            // 📦 Orders
+            var orders = [];
+            {% for o in orders %}
+            var oLatLng = [{{ o.lat }}, {{ o.lng }}];
+            orders.push(oLatLng);
+
+            L.marker(oLatLng, {icon: orderIcon})
+                .addTo(map)
+                .bindPopup("📦 {{ o.name }}");
+            {% endfor %}
+
+            // 🚚 Vehicles
+            var vehicles = [];
+            var vehicleMarkers = [];
+
+            {% for v in vehicles %}
+            var vLatLng = [{{ v.lat }}, {{ v.lng }}];
+            vehicles.push(vLatLng);
+
+            var marker = L.marker(vLatLng, {icon: vehicleIcon})
+                .addTo(map)
+                .bindPopup("🚚 {{ v.name }}");
+
+            vehicleMarkers.push(marker);
+            {% endfor %}
+
+            // ================= API =================
+            var apiKey = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImE4YTg4NjZjNzlkOTQzN2FiMzA2YmIwMDMwODMzZTRiIiwiaCI6Im11cm11cjY0In0=";
+
+            async function getRoute(start, end) {
+                var url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${start[1]},${start[0]}&end=${end[1]},${end[0]}`;
+
+                const res = await fetch(url);
+                const data = await res.json();
+
+                var coords = data.features[0].geometry.coordinates;
+
+                return coords.map(c => [c[1], c[0]]);
+            }
+
+            // ================= LOGIC =================
+            function distance(a, b) {
+                return Math.sqrt(
+                    Math.pow(a[0] - b[0], 2) +
+                    Math.pow(a[1] - b[1], 2)
+                );
+            }
+
+            function findNearest(point, list) {
+                let min = Infinity;
+                let nearest = null;
+
+                list.forEach(p => {
+                    let d = distance(point, p);
+                    if (d < min) {
+                        min = d;
+                        nearest = p;
+                    }
+                });
+
+                return nearest;
+            }
+
+            // ================= ANIMATION =================
+            function animateVehicle(marker, route) {
+                let i = 0;
+
+                let interval = setInterval(() => {
+                    if (i >= route.length) {
+                        clearInterval(interval);
+                        return;
+                    }
+
+                    marker.setLatLng(route[i]);
+                    i++;
+                }, 50);
+            }
+
+            // ================= MAIN =================
+            async function runAll() {
+
+          let allPoints = [];
+
+          document.getElementById("status").innerText = "🚚 Xe đang hoạt động...";
+
+          for (let i = 0; i < vehicles.length; i++) {
+
+              let vehicle = vehicles[i];
+              let marker = vehicleMarkers[i];
+
+              let nearestWarehouse = findNearest(vehicle, warehouses);
+              let nearestOrder = findNearest(nearestWarehouse, orders);
+
+              let route1 = await getRoute(vehicle, nearestWarehouse);
+              let route2 = await getRoute(nearestWarehouse, nearestOrder);
+
+              let fullRoute = [...route1, ...route2];
+
+              // gom tất cả điểm
+              allPoints = allPoints.concat(fullRoute);
+
+              L.polyline(fullRoute, {
+                  color: ["red","blue","green","orange"][i % 4],
+                  weight: 5
+              }).addTo(map);
+
+              animateVehicle(marker, fullRoute);
+
+              orders = orders.filter(o => o !== nearestOrder);
+          }
+
+          // 👉 zoom toàn bộ map
+          map.fitBounds(allPoints);
+      }
+    </script>
+  </body>
+</html>
