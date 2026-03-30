@@ -1,0 +1,599 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Map - Logistics GIS{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="row">
+
+    <!-- LEFT: ORDER PANEL -->
+    <div class="col-md-3 p-3 bg-light order-panel">
+      
+      <!-- Toggle Button for Mobile -->
+      <button class="btn btn-primary d-md-none w-100 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#orderPanel">
+        <i class="fas fa-boxes me-2"></i>Quản Lý Đơn
+      </button>
+
+      <!-- Order Panel Content -->
+      <div id="orderPanel" class="collapse show">
+        
+        <!-- Tabs: Create / My Orders -->
+        <ul class="nav nav-tabs mb-3" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="create-tab" data-bs-toggle="tab" data-bs-target="#createPanel" type="button">
+              <i class="fas fa-plus me-1"></i>Tạo Mới
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="myorders-tab" data-bs-toggle="tab" data-bs-target="#myOrdersPanel" type="button">
+              <i class="fas fa-list me-1"></i>Đơn Của Tôi
+            </button>
+          </li>
+        </ul>
+
+        <!-- Create Order Tab -->
+        <div class="tab-content">
+          <div class="tab-pane fade show active" id="createPanel" role="tabpanel">
+            <form method="POST" id="orderForm" class="compact-form">
+              {% csrf_token %}
+
+              <!-- Tên Người Gửi -->
+              <div class="mb-2">
+                <label class="form-label small fw-bold text-dark">Tên Người Gửi</label>
+                <input type="text" name="customer_name" class="form-control form-control-sm text-dark" placeholder="Nhập tên người gửi" required>
+              </div>
+
+              <!-- Số Điện Thoại Người Gửi -->
+              <div class="mb-2">
+                <label class="form-label small fw-bold text-dark">Số Điện Thoại Người Gửi</label>
+                <input type="tel" name="customer_phone" class="form-control form-control-sm text-dark" placeholder="Nhập SĐT">
+              </div>
+
+              <!-- Địa Chỉ Người Gửi -->
+              <div class="mb-2">
+                <label class="form-label small fw-bold text-dark">Địa Chỉ Người Gửi</label>
+                <input type="text" name="customer_address" class="form-control form-control-sm text-dark" placeholder="Nhập địa chỉ gửi">
+              </div>
+
+              <hr class="my-2">
+
+              <!-- Tên Người Nhận -->
+              <div class="mb-2">
+                <label class="form-label small fw-bold text-dark">Tên Người Nhận</label>
+                <input type="text" name="recipient_name" class="form-control form-control-sm text-dark" placeholder="Nhập tên người nhận" required>
+              </div>
+
+              <!-- Số Điện Thoại Người Nhận -->
+              <div class="mb-2">
+                <label class="form-label small fw-bold text-dark">Số Điện Thoại Người Nhận</label>
+                <input type="tel" name="recipient_phone" class="form-control form-control-sm text-dark" placeholder="Nhập SĐT người nhận">
+              </div>
+
+              <!-- Địa Chỉ Người Nhận -->
+              <div class="mb-2">
+                <label class="form-label small fw-bold text-dark">Vị Trí Nhận Hàng</label>
+                <input type="text" name="delivery_point" class="form-control form-control-sm text-dark" placeholder="Nhập vị trí nhận">
+              </div>
+
+              <hr class="my-2">
+
+              <!-- Loại Hàng Hóa -->
+              <div class="mb-2">
+                <label class="form-label small fw-bold text-dark">Loại Hàng Hóa</label>
+                <select name="product_type" class="form-select form-select-sm text-dark">
+                  <option value="">-- Chọn Loại Hàng --</option>
+                  <option value="FASHION">Thời Trang (Fashion)</option>
+                  <option value="COSMETICS">Mĩ Phẩm (Cosmetics)</option>
+                  <option value="ELECTRONICS">Điện Tử (Electronics)</option>
+                  <option value="HOUSEHOLD">Gia Dụng (Household)</option>
+                  <option value="FOOD">Thực Phẩm (Food)</option>
+                  <option value="OTHER">Khác (Other)</option>
+                </select>
+              </div>
+
+              <!-- Hidden Fields for Coordinates -->
+              <input type="hidden" name="lat" id="formLat" value="10.8231">
+              <input type="hidden" name="lng" id="formLng" value="106.6297">
+              <input type="hidden" name="code" value="">
+
+              <!-- Note -->
+              <div class="alert alert-info alert-sm mb-2" role="alert">
+                <small class="text-dark">
+                  <i class="fas fa-info-circle me-1"></i>
+                  Nhấp vào map để chọn vị trí giao hàng
+                </small>
+              </div>
+
+              <!-- Submit Button -->
+              <button type="submit" class="btn btn-success btn-sm w-100">
+                <i class="fas fa-check me-1"></i>Gửi Đơn
+              </button>
+            </form>
+          </div>
+
+          <!-- My Orders Tab -->
+          <div class="tab-pane fade" id="myOrdersPanel" role="tabpanel">
+            <div class="orders-list-compact" id="ordersList">
+              <p class="text-muted text-center small">Đang tải đơn hàng...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Admin Dashboard Link -->
+        {% if user.role == 'ADMIN' %}
+        <hr class="my-2">
+        <a href="{% url 'admin_dashboard' %}" class="btn btn-danger btn-sm w-100">
+          <i class="fas fa-tachometer-alt me-1"></i>Admin Dashboard
+        </a>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- RIGHT: MAP -->
+    <div class="col-md-9 p-0 position-relative">
+      <!-- Search Box on Map -->
+      <div class="map-search-box">
+        <input type="text" id="mapSearchInput" class="form-control form-control-sm" placeholder="🔍 Tìm kiếm địa chỉ, đơn hàng, khách hàng...">
+        <div id="searchResults" class="search-results"></div>
+      </div>
+      <div id="map" style="height: 100vh;"></div>
+    </div>
+
+  </div>
+</div>
+
+<style>
+.order-panel {
+  max-height: 100vh;
+  overflow-y: auto;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.compact-form .form-control,
+.compact-form .form-select {
+  font-size: 12px;
+  padding: 6px 10px;
+  color: #000 !important;
+}
+
+.compact-form .form-control::placeholder {
+  color: #666;
+}
+
+.compact-form label {
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #000 !important;
+}
+
+.text-dark {
+  color: #000 !important;
+}
+
+.alert-sm {
+  padding: 8px 12px;
+  font-size: 12px;
+  margin-bottom: 0;
+}
+
+.btn-sm {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.nav-tabs {
+  border-bottom: 1px solid #dee2e6;
+}
+
+.nav-tabs .nav-link {
+  color: #666;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.nav-tabs .nav-link.active {
+  color: #0d6efd;
+  font-weight: 600;
+  border-bottom-color: #0d6efd;
+}
+
+.orders-list-compact {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.map-search-box {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 999;
+  width: 300px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  border-radius: 6px;
+  background: white;
+}
+
+.map-search-box input {
+  border-radius: 6px 6px 0 0 !important;
+  border: none;
+  padding: 10px 15px !important;
+  font-size: 13px;
+  color: #000;
+}
+
+.map-search-box input:focus {
+  outline: none;
+  box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+}
+
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border-radius: 0 0 6px 6px;
+  max-height: 300px;
+  overflow-y: auto;
+  display: none;
+  border: 1px solid #ddd;
+  border-top: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.search-results.active {
+  display: block;
+}
+
+.search-result-item {
+  padding: 10px 15px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  font-size: 12px;
+  color: #333;
+  transition: background 0.2s;
+}
+
+.search-result-item:hover {
+  background: #f0f4ff;
+}
+
+.search-result-item strong {
+  color: #0d6efd;
+  display: block;
+  margin-bottom: 3px;
+}
+
+.search-result-item small {
+  color: #666;
+}
+
+.order-item {
+  padding: 10px;
+  border-left: 3px solid #0d6efd;
+  background: #fff;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.order-item:hover {
+  background: #f0f4ff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  border-left-color: #00b4d8;
+}
+
+.order-item-code {
+  font-weight: 700;
+  color: #000 !important;
+  font-size: 13px;
+}
+
+.order-item-status {
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.order-item-info {
+  font-size: 11px;
+  color: #000 !important;
+  margin-top: 3px;
+}
+
+@media (max-width: 768px) {
+  .order-panel {
+    position: fixed;
+    left: 0;
+    top: 60px;
+    width: 100%;
+    max-height: 50vh;
+    z-index: 1000;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .col-md-9 {
+    margin-top: 250px;
+  }
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Leaflet CSS + JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    // Default coordinates (TP.HCM)
+    var map = L.map('map').setView([10.8231, 106.6297], 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 18,
+        minZoom: 1
+    }).addTo(map);
+
+    // Custom icon for warehouses
+    var warehouseIcon = L.divIcon({
+        className: "custom-marker",
+        html: '<div style="background: #f0b429; width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+        iconSize: [30, 30],
+        iconAnchor: [15, 30],
+    });
+
+    // Custom icon for vehicles
+    var vehicleIcon = L.divIcon({
+        className: "custom-marker",
+        html: '<div style="background: #007bff; width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+        iconSize: [30, 30],
+        iconAnchor: [15, 30],
+    });
+
+    // Custom icon for orders
+    var orderIcon = L.divIcon({
+        className: "custom-marker",
+        html: '<div style="background: #28a745; width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+        iconSize: [30, 30],
+        iconAnchor: [15, 30],
+    });
+
+    // Store selected marker
+    var selectedMarker = null;
+
+    // Map click to select location
+    map.on('click', function (e) {
+        var lat = e.latlng.lat;
+        var lng = e.latlng.lng;
+
+        // Update form fields
+        document.getElementById('formLat').value = lat.toFixed(6);
+        document.getElementById('formLng').value = lng.toFixed(6);
+
+        // Remove old marker if exists
+        if (selectedMarker) {
+            map.removeLayer(selectedMarker);
+        }
+
+        // Add new marker
+        selectedMarker = L.marker([lat, lng], { icon: orderIcon }).addTo(map)
+            .bindPopup('Vị trí: ' + lat.toFixed(4) + ', ' + lng.toFixed(4));
+
+        // Show success message
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-success alert-dismissible fade show';
+        alert.innerHTML = `<small><i class="fas fa-check-circle me-1"></i>Đã chọn vị trí giao hàng</small>`;
+        document.querySelector('.order-panel').prepend(alert);
+        setTimeout(() => alert.remove(), 3000);
+    });
+
+    // Load orders
+    function loadMyOrders() {
+        fetch('/api/map-data/')
+            .then(res => res.json())
+            .then(data => {
+                if (data.orders && data.orders.length > 0) {
+                    const ordersList = document.getElementById('ordersList');
+                    ordersList.innerHTML = '';
+
+                    data.orders.forEach(order => {
+                        const statusBadge = {
+                            'PENDING': '<span class="badge bg-warning">Chờ Duyệt</span>',
+                            'APPROVED': '<span class="badge bg-info">Đang Giao</span>',
+                            'IN_PROGRESS': '<span class="badge bg-info">Đang Giao</span>',
+                            'DELIVERED': '<span class="badge bg-secondary">Đã Giao</span>'
+                        }[order.status] || '<span class="badge bg-secondary">' + order.status + '</span>';
+
+                        const orderItem = document.createElement('div');
+                        orderItem.className = 'order-item';
+                        orderItem.innerHTML = `
+                            <div class="order-item-code">${order.code || 'Đang xử lý'}</div>
+                            <div class="order-item-info">${order.customer_name || 'Không có tên'}</div>
+                            <div class="order-item-status">${statusBadge}</div>
+                        `;
+                        orderItem.addEventListener('click', () => {
+                            // Center map on order
+                            map.setView([order.lat, order.lng], 15);
+                            
+                            // Show popup
+                            L.popup()
+                                .setLatLng([order.lat, order.lng])
+                                .setContent(`
+                                    <strong>${order.code || 'Đơn hàng'}</strong><br>
+                                    ${order.customer_name || 'Đang giao hàng'}<br>
+                                    ${order.customer_address || 'Đang giao hàng'}<br>
+                                    <small>${order.estimated_eta || 'Đang giao hàng'}</small>
+                                `)
+                                .openOn(map);
+                        });
+                        ordersList.appendChild(orderItem);
+                    });
+                } else {
+                    document.getElementById('ordersList').innerHTML = '<p class="text-muted text-center small">Không có đơn hàng</p>';
+                }
+            })
+            .catch(err => console.error('Error loading orders:', err));
+    }
+
+    // Load orders initially
+    loadMyOrders();
+
+    // Refresh orders every 10 seconds
+    setInterval(loadMyOrders, 10000);
+
+    // Search functionality
+    let allOrders = [];
+    let allWarehouses = [];
+    let allVehicles = [];
+
+    const searchInput = document.getElementById('mapSearchInput');
+    const searchResults = document.getElementById('searchResults');
+
+    // Load all data for search - use all available data
+    function loadSearchData() {
+        Promise.all([
+            fetch('/api/map-data/', { credentials: 'same-origin' }).then(res => res.json()).then(data => data.orders || []).catch(() => []),
+            fetch('/api/warehouses/').then(res => res.json()).catch(() => []),
+            fetch('/api/vehicles/').then(res => res.json()).catch(() => [])
+        ]).then(([orders, warehouses, vehicles]) => {
+            allOrders = Array.isArray(orders) ? orders : [];
+            allWarehouses = Array.isArray(warehouses) ? warehouses : [];
+            allVehicles = Array.isArray(vehicles) ? vehicles : [];
+            console.log('✓ Search data loaded:', {orders: allOrders.length, warehouses: allWarehouses.length, vehicles: allVehicles.length});
+        });
+    }
+
+    // Load search data initially
+    loadSearchData();
+    // Reload search data every 30 seconds
+    setInterval(loadSearchData, 30000);
+
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        
+        if (query.length < 1) {
+            searchResults.classList.remove('active');
+            return;
+        }
+
+        let results = [];
+
+        // Search in orders
+        if (allOrders.length > 0) {
+            allOrders.forEach(order => {
+                const customerName = order.customer_name || '';
+                const address = order.customer_address || '';
+                if (order.code.toLowerCase().includes(query) || 
+                    customerName.toLowerCase().includes(query) ||
+                    address.toLowerCase().includes(query)) {
+                    results.push({
+                        type: 'order',
+                        code: order.code,
+                        name: customerName,
+                        address: address,
+                        lat: order.lat,
+                        lng: order.lng,
+                        status: order.status
+                    });
+                }
+            });
+        }
+
+        // Search in warehouses
+        if (allWarehouses.length > 0) {
+            allWarehouses.forEach(wh => {
+                if (wh.name.toLowerCase().includes(query)) {
+                    results.push({
+                        type: 'warehouse',
+                        name: wh.name,
+                        lat: wh.lat,
+                        lng: wh.lng
+                    });
+                }
+            });
+        }
+
+        // Search in vehicles
+        if (allVehicles.length > 0) {
+            allVehicles.forEach(vehicle => {
+                if (vehicle.name.toLowerCase().includes(query) || 
+                    (vehicle.driver_name && vehicle.driver_name.toLowerCase().includes(query))) {
+                    results.push({
+                        type: 'vehicle',
+                        name: vehicle.name,
+                        driver: vehicle.driver_name || 'N/A',
+                        lat: vehicle.lat,
+                        lng: vehicle.lng
+                    });
+                }
+            });
+        }
+
+        // Display results
+        if (results.length > 0) {
+            console.log('Search found:', results.length, 'results');
+            searchResults.innerHTML = results.slice(0, 10).map(result => {
+                let html = '<div class="search-result-item" onclick="centerMapOnResult(' + result.lat + ', ' + result.lng + ')">';
+                if (result.type === 'order') {
+                    html += '<strong>📦 ' + result.code + ' - ' + result.name + '</strong>';
+                    html += '<small>' + (result.address || 'Không có địa chỉ') + '</small>';
+                } else if (result.type === 'warehouse') {
+                    html += '<strong>🏭 ' + result.name + '</strong>';
+                    html += '<small>Kho hàng</small>';
+                } else if (result.type === 'vehicle') {
+                    html += '<strong>🚗 ' + result.name + '</strong>';
+                    html += '<small>Tài xế: ' + result.driver + '</small>';
+                }
+                html += '</div>';
+                return html;
+            }).join('');
+            searchResults.classList.add('active');
+        } else {
+            console.log('No results found for:', query);
+            searchResults.innerHTML = '<div class="search-result-item" style="cursor: default; color: #999;">Không tìm thấy kết quả</div>';
+            searchResults.classList.add('active');
+        }
+    });
+
+    // Function to center map on search result
+    window.centerMapOnResult = function(lat, lng) {
+        map.setView([lat, lng], 15);
+        searchResults.classList.remove('active');
+        searchInput.value = '';
+    };
+
+    // Load warehouses
+    fetch('/api/warehouses/')
+        .then(res => res.json())
+        .then(warehouses => {
+            warehouses.forEach(wh => {
+                L.marker([wh.lat, wh.lng], { icon: warehouseIcon })
+                    .addTo(map)
+                    .bindPopup('<strong>' + wh.name + '</strong>');
+            });
+        });
+
+    // Load vehicles
+    fetch('/api/vehicles/')
+        .then(res => res.json())
+        .then(vehicles => {
+            vehicles.forEach(vehicle => {
+                L.marker([vehicle.lat, vehicle.lng], { icon: vehicleIcon })
+                    .addTo(map)
+                    .bindPopup(
+                        '<strong>' + vehicle.name + '</strong><br>' +
+                        'Driver: ' + vehicle.driver_name + '<br>' +
+                        'Status: ' + vehicle.status
+                    );
+            });
+        });
+
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,939 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% load filters %}
+
+{% block content %}
+<div class="admin-dashboard-container">
+    <!-- Header with Stats -->
+    <div class="dashboard-header mb-4">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="header-title mb-4">
+                    <h1>
+                        <i class="fas fa-tachometer-alt me-2"></i>Bảng Điều Khiển Quản Lý
+                    </h1>
+                    <p class="text-muted">Quản lý đơn hàng, tài xế và phương tiện vận chuyển</p>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-2">
+                        <div class="stat-card bg-primary text-white">
+                            <div class="stat-value">{{ total_orders }}</div>
+                            <div class="stat-label">
+                                <i class="fas fa-boxes me-2"></i>Tổng Đơn
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="stat-card bg-warning text-white">
+                            <div class="stat-value">{{ pending_count }}</div>
+                            <div class="stat-label">
+                                <i class="fas fa-hourglass-start me-2"></i>Chờ Duyệt
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="stat-card bg-success text-white">
+                            <div class="stat-value">{{ approved_count }}</div>
+                            <div class="stat-label">
+                                <i class="fas fa-check-circle me-2"></i>Đã Duyệt
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="stat-card bg-info text-white">
+                            <div class="stat-value">{{ in_progress_count }}</div>
+                            <div class="stat-label">
+                                <i class="fas fa-route me-2"></i>Đang Giao
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="stat-card bg-success text-white">
+                            <div class="stat-value">{{ delivered_count }}</div>
+                            <div class="stat-label">
+                                <i class="fas fa-check me-2"></i>Đã Giao
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="stat-card bg-dark text-white">
+                            <div class="stat-value">{{ total_revenue|currency }}</div>
+                            <div class="stat-label">
+                                <i class="fas fa-money-bill-wave me-2"></i>Doanh Thu
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="stat-card bg-danger text-white">
+                            <div class="stat-value">{{ cancelled_count }}</div>
+                            <div class="stat-label">
+                                <i class="fas fa-ban me-2"></i>Đơn Đã Hủy
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs Navigation -->
+    <div class="row">
+        <div class="col-md-12">
+            <ul class="nav nav-tabs mb-4" id="dashboardTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button 
+                        class="nav-link active" 
+                        id="orders-tab" 
+                        data-bs-toggle="tab" 
+                        data-bs-target="#orders" 
+                        type="button" 
+                        role="tab"
+                    >
+                        <i class="fas fa-list me-2"></i>QUẢN LÝ ĐƠN ({{ total_orders }})
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button 
+                        class="nav-link" 
+                        id="vehicles-tab" 
+                        data-bs-toggle="tab" 
+                        data-bs-target="#vehicles" 
+                        type="button" 
+                        role="tab"
+                    >
+                        <i class="fas fa-car me-2"></i>QUẢN LÝ PHƯƠNG TIỆN ({{ vehicles|length }})
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button 
+                        class="nav-link" 
+                        id="warehouses-tab" 
+                        data-bs-toggle="tab" 
+                        data-bs-target="#warehouses" 
+                        type="button" 
+                        role="tab"
+                    >
+                        <i class="fas fa-warehouse me-2"></i>QUẢN LÝ KHO ({{ warehouses|length }})
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="dashboardTabsContent">
+        <!-- Orders Tab -->
+        <div class="tab-pane fade show active" id="orders" role="tabpanel">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-list me-2"></i>QUẢN LÝ ĐƠN HÀY
+                                    </h5>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <a href="{% url 'admin_order_management' %}" class="btn btn-success btn-sm">
+                                        <i class="fas fa-plus me-1"></i>Thêm Đơn Mới
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-body">
+                            <!-- Search and Filter -->
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-search"></i>
+                                        </span>
+                                        <input 
+                                            type="text" 
+                                            class="form-control" 
+                                            placeholder="tìm xe" 
+                                            id="searchInput"
+                                            value="{{ search_query }}"
+                                        >
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <select class="form-select" id="statusFilter">
+                                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Tất Cả Trạng Thái</option>
+                                        <option value="PENDING" {% if status_filter == 'PENDING' %}selected{% endif %}>Chờ Duyệt</option>
+                                        <option value="APPROVED" {% if status_filter == 'APPROVED' %}selected{% endif %}>Đã Duyệt</option>
+                                        <option value="IN_PROGRESS" {% if status_filter == 'IN_PROGRESS' %}selected{% endif %}>Đang Giao</option>
+                                        <option value="DELIVERED" {% if status_filter == 'DELIVERED' %}selected{% endif %}>Đã Giao</option>
+                                        <option value="CANCELLED" {% if status_filter == 'CANCELLED' %}selected{% endif %}>Đã Hủy</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Orders Table -->
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Mã ĐH</th>
+                                            <th>Khách Hàng</th>
+                                            <th>SĐT</th>
+                                            <th>Địa Chỉ</th>
+                                            <th>Loại Hàng</th>
+                                            <th>Giá Tiền</th>
+                                            <th>Trạng Thái</th>
+                                            <th>Tài Xế</th>
+                                            <th>Hành Động</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for order in orders %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ order.code|default:"N/A" }}</strong>
+                                            </td>
+                                            <td>
+                                                {{ order.customer_name|default:"Chưa có" }}
+                                            </td>
+                                            <td>
+                                                {{ order.customer_phone|default:"-" }}
+                                            </td>
+                                            <td>
+                                                <small>{{ order.customer_address|default:"Chưa có" }}</small>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-secondary">
+                                                    {{ order.get_product_type_display|default:"Chưa có" }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <strong class="text-danger">{{ order.total_price|currency }}</strong>
+                                            </td>
+                                            <td>
+                                                {% if order.status == 'PENDING' %}
+                                                    <span class="badge bg-warning">Chờ Duyệt</span>
+                                                {% elif order.status == 'APPROVED' %}
+                                                    <span class="badge bg-success">Đã Duyệt</span>
+                                                {% elif order.status == 'IN_PROGRESS' %}
+                                                    <span class="badge bg-info">Đang Giao</span>
+                                                {% elif order.status == 'DELIVERED' %}
+                                                    <span class="badge bg-success">Đã Giao</span>
+                                                {% elif order.status == 'CANCELLED' %}
+                                                    <span class="badge bg-danger">Đã Hủy</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">{{ order.get_status_display }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if order.assigned_vehicle %}
+                                                    <small>{{ order.assigned_vehicle.driver_name|default:"N/A" }}</small>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    {% if order.status == 'PENDING' %}
+                                                    <button 
+                                                        type="button" 
+                                                        class="btn btn-success approve-order-btn" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#approveModal"
+                                                        data-order-id="{{ order.id }}"
+                                                        data-order-code="{{ order.code }}"
+                                                    >
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                    {% endif %}
+                                                    <a href="{% url 'admin_edit_order' order.id %}" class="btn btn-info">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    <button 
+                                                        type="button" 
+                                                        class="btn btn-danger delete-order-btn" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#deleteConfirmModal"
+                                                        data-order-id="{{ order.id }}"
+                                                        data-order-code="{{ order.code }}"
+                                                        data-customer-name="{{ order.customer_name }}"
+                                                        data-driver-name="{{ order.assigned_vehicle.driver_name|default:'' }}"
+                                                    >
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted py-4">
+                                                <i class="fas fa-inbox fa-2x mb-2"></i>
+                                                <p>Không có đơn hàng nào</p>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vehicles Tab -->
+        <div class="tab-pane fade" id="vehicles" role="tabpanel">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-car me-2"></i>DANH SÁCH PHƯƠNG TIỆN
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for vehicle in vehicles %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="vehicle-card card">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                                <h5 class="card-title mb-0">{{ vehicle.name }}</h5>
+                                                <span class="badge {% if vehicle.status == 'ACTIVE' %}bg-success{% elif vehicle.status == 'ON_DELIVERY' %}bg-info{% else %}bg-secondary{% endif %}">
+                                                    {{ vehicle.get_status_display }}
+                                                </span>
+                                            </div>
+                                            <hr>
+                                            <p class="mb-2">
+                                                <strong>Tài Xế:</strong> {{ vehicle.driver_name|default:"Chưa có" }}
+                                            </p>
+                                            <p class="mb-2">
+                                                <strong>Năm Sinh:</strong> {{ vehicle.driver_birth_year|default:"N/A" }}
+                                            </p>
+                                            <p class="mb-2">
+                                                <strong>Biển Số:</strong> {{ vehicle.plate_number|default:"N/A" }}
+                                            </p>
+                                            <p class="mb-2">
+                                                <strong>Loại Xe:</strong> {{ vehicle.vehicle_type|default:"N/A" }}
+                                            </p>
+                                            <p class="mb-0">
+                                                <strong>Vị Trí:</strong> {{ vehicle.lat|floatformat:4 }}, {{ vehicle.lng|floatformat:4 }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="col-md-12 text-center text-muted py-4">
+                                    <i class="fas fa-car fa-2x mb-2"></i>
+                                    <p>Chưa có phương tiện nào</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Warehouses Tab -->
+        <div class="tab-pane fade" id="warehouses" role="tabpanel">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-warehouse me-2"></i>DANH SÁCH KHO HÀNG
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for warehouse in warehouses %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="warehouse-card card">
+                                        <div class="card-body">
+                                            <h5 class="card-title">{{ warehouse.name }}</h5>
+                                            <hr>
+                                            <p class="mb-2">
+                                                <strong>Vĩ Độ:</strong> {{ warehouse.lat|floatformat:6 }}
+                                            </p>
+                                            <p class="mb-0">
+                                                <strong>Kinh Độ:</strong> {{ warehouse.lng|floatformat:6 }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="col-md-12 text-center text-muted py-4">
+                                    <i class="fas fa-warehouse fa-2x mb-2"></i>
+                                    <p>Chưa có kho hàng nào</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Approve Order Modal -->
+<div class="modal fade" id="approveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle me-2"></i>Phê Duyệt Đơn Hàng
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Bạn có chắc chắn muốn phê duyệt đơn hàng <strong id="approveCode"></strong>?</p>
+                <p class="text-muted">Hệ thống sẽ gán tài xế và cập nhật trạng thái đơn hàng.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <a href="#" id="approveBtn" class="btn btn-success">
+                    <i class="fas fa-check me-1"></i>Phê Duyệt
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Xóa Đơn Hàng
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-warning me-2"></i>
+                    <strong>Bạn có chắc chắn muốn xóa đơn hàng không?</strong>
+                </div>
+                <p>Đơn hàng <strong id="deleteOrderCode"></strong> sẽ bị xóa vĩnh viễn khỏi hệ thống.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Không
+                </button>
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteCancelReasonModal" onclick="switchToCancelReason()">
+                    <i class="fas fa-trash me-1"></i>Có, Xóa
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Cancel Reason Modal -->
+<div class="modal fade" id="deleteCancelReasonModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-clipboard-list me-2"></i>Lý Do Hủy Đơn Hàng
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="cancelOrderForm">
+                    <!-- Order Information -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Thông Tin Đơn Hàng
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p class="mb-2">
+                                        <strong>Mã Đơn:</strong> <span id="cancelOrderId"></span>
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-2">
+                                        <strong>Khách Hàng:</strong> <span id="cancelCustomerName"></span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Driver Information -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="fas fa-user-tie me-2"></i>Thông Tin Tài Xế Hủy Chuyến
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="driverName" class="form-label">Tên Tài Xế <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="driverName" placeholder="Nhập tên tài xế" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="driverPhone" class="form-label">Số Điện Thoại <span class="text-danger">*</span></label>
+                                    <input type="tel" class="form-control" id="driverPhone" placeholder="Nhập số điện thoại" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cancellation Reason -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="fas fa-ban me-2"></i>Lý Do Hủy Chuyến
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="cancelReason" class="form-label">Lý Do <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="cancelReason" rows="4" placeholder="Nhập lý do hủy chuyến..." required></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cancelled Orders List -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="fas fa-list me-2"></i>Danh Sách Đơn Hàng Bị Hủy
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info" id="cancelledOrdersInfo">
+                                <small>Sẽ hiển thị đơn hàng bị hủy tương ứng</small>
+                            </div>
+                            <div id="cancelledOrdersList">
+                                <!-- Will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Hủy
+                </button>
+                <button type="button" class="btn btn-danger" id="submitCancelBtn">
+                    <i class="fas fa-trash me-1"></i>Xác Nhận Hủy
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View All Vehicle Orders Modal -->
+<div class="modal fade" id="viewAllOrdersModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-list me-2"></i>Danh Sách Đơn Hàng - <span id="vehicleDriverName"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Mã Đơn</th>
+                                <th>Khách Hàng</th>
+                                <th>Địa Chỉ</th>
+                                <th>Trạng Thái</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vehicleOrdersList">
+                            <!-- Orders will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.admin-dashboard-container {
+    padding: 20px;
+}
+
+.header-title h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #333;
+}
+
+.stat-card {
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.stat-label {
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0.9;
+}
+
+.nav-tabs .nav-link {
+    color: #666;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 12px 20px;
+    font-weight: 500;
+}
+
+.nav-tabs .nav-link:hover {
+    border-bottom-color: #0d6efd;
+}
+
+.nav-tabs .nav-link.active {
+    color: #0d6efd;
+    border-bottom-color: #0d6efd;
+    background: transparent;
+}
+
+.card {
+    border-radius: 8px;
+    border: none;
+}
+
+.card-header {
+    border-radius: 8px 8px 0 0 !important;
+    font-weight: 600;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.table th {
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.btn-group-sm .btn {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.vehicle-card, .warehouse-card {
+    border-left: 4px solid #0d6efd;
+    transition: box-shadow 0.2s;
+}
+
+.vehicle-card:hover, .warehouse-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.input-group .form-control,
+.form-select {
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}
+
+.input-group .form-control:focus,
+.form-select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Modal form input styles */
+#cancelOrderForm .form-control,
+#cancelOrderForm .form-select {
+    background-color: #ffffff;
+    color: #333;
+    border: 1px solid #ced4da;
+}
+
+#cancelOrderForm .form-control::placeholder {
+    color: #666;
+}
+
+#cancelOrderForm .form-control:focus,
+#cancelOrderForm .form-select:focus {
+    background-color: #ffffff;
+    color: #333;
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+@media (max-width: 768px) {
+    .stat-card {
+        margin-bottom: 15px;
+    }
+
+    .table {
+        font-size: 12px;
+    }
+
+    .stat-value {
+        font-size: 24px;
+    }
+}
+</style>
+
+<script>
+let currentDeleteOrder = {
+    id: null,
+    code: null,
+    customerName: null,
+    driverName: null
+};
+
+function prepareApprove(orderId, orderCode) {
+    document.getElementById('approveCode').textContent = orderCode;
+    document.getElementById('approveBtn').href = `/approve-order/${orderId}/`;
+}
+
+function showDetails(orderId) {
+    // Placeholder for details modal
+    console.log('Show details for order:', orderId);
+}
+
+// Delete order and approve order button handlers
+document.addEventListener('DOMContentLoaded', function() {
+    // Approve order button via data attributes
+    document.querySelectorAll('.approve-order-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const orderId = this.dataset.orderId;
+            const orderCode = this.dataset.orderCode;
+            prepareApprove(orderId, orderCode);
+        });
+    });
+
+    document.querySelectorAll('.delete-order-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            const orderId = this.dataset.orderId;
+            const orderCode = this.dataset.orderCode;
+            const customerName = this.dataset.customerName;
+            const driverName = this.dataset.driverName;
+            
+            currentDeleteOrder = {
+                id: orderId,
+                code: orderCode,
+                customerName: customerName,
+                driverName: driverName
+            };
+            
+            document.getElementById('deleteOrderCode').textContent = orderCode;
+        });
+    });
+
+    // Submit cancel reason
+    document.getElementById('submitCancelBtn').addEventListener('click', function() {
+        const form = document.getElementById('cancelOrderForm');
+        if (form.checkValidity() === false) {
+            e.preventDefault();
+            e.stopPropagation();
+            form.classList.add('was-validated');
+        } else {
+            submitCancelOrder();
+        }
+    });
+});
+
+function switchToCancelReason() {
+    // Populate the cancel reason modal with order info
+    document.getElementById('cancelOrderId').textContent = currentDeleteOrder.code;
+    document.getElementById('cancelCustomerName').textContent = currentDeleteOrder.customerName;
+    
+    if (currentDeleteOrder.driverName) {
+        document.getElementById('driverName').value = currentDeleteOrder.driverName;
+    }
+    
+    // Close the delete confirm modal and open cancel reason modal
+    const deleteConfirmModal = bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal'));
+    if (deleteConfirmModal) {
+        deleteConfirmModal.hide();
+    }
+}
+
+function submitCancelOrder() {
+    const driverName = document.getElementById('driverName').value;
+    const driverPhone = document.getElementById('driverPhone').value;
+    const cancelReason = document.getElementById('cancelReason').value;
+    
+    if (!driverName || !driverPhone || !cancelReason) {
+        alert('Vui lòng điền đầy đủ thông tin');
+        return;
+    }
+    
+    // Create FormData to send to server
+    const formData = new FormData();
+    formData.append('order_id', currentDeleteOrder.id);
+    formData.append('driver_name', driverName);
+    formData.append('driver_phone', driverPhone);
+    formData.append('cancel_reason', cancelReason);
+    
+    // Send to server
+    fetch('/cancel-order/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: formData
+    })
+    .then(response => {
+        if (response.ok) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteCancelReasonModal'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            // Reload page or show success message
+            alert('Đơn hàng đã được hủy thành công');
+            location.reload();
+        } else {
+            alert('Có lỗi xảy ra. Vui lòng thử lại.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Có lỗi xảy ra. Vui lòng thử lại.');
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Search and filter
+document.getElementById('searchInput').addEventListener('input', function() {
+    const query = this.value;
+    const status = document.getElementById('statusFilter').value;
+    const url = new URL(window.location);
+    url.searchParams.set('search', query);
+    url.searchParams.set('status', status);
+    window.location = url.toString();
+});
+
+document.getElementById('statusFilter').addEventListener('change', function() {
+    const status = this.value;
+    const query = document.getElementById('searchInput').value;
+    const url = new URL(window.location);
+    url.searchParams.set('status', status);
+    url.searchParams.set('search', query);
+    window.location = url.toString();
+});
+
+// Driver tracking real-time updates
+function updateDriverSpeeds() {
+    const speedElements = document.querySelectorAll('.driver-speed');
+    speedElements.forEach(element => {
+        const vehicleId = element.dataset.vehicleId;
+        // Simulate speed based on vehicle status
+        const speed = Math.floor(Math.random() * 60) + 30; // Random speed 30-90 km/h
+        element.innerHTML = `<i class="fas fa-tachometer-alt me-1"></i>${speed} km/h`;
+    });
+}
+
+// Update speeds every 5 seconds
+setInterval(updateDriverSpeeds, 5000);
+updateDriverSpeeds(); // Initial update
+
+// View all orders for a vehicle
+document.querySelectorAll('.view-all-orders').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const vehicleId = this.dataset.vehicleId;
+        const vehicleDriverName = this.dataset.vehicleName;
+        
+        // Set the vehicle name in modal
+        document.getElementById('vehicleDriverName').textContent = vehicleDriverName;
+        
+        // Fetch orders for this vehicle
+        fetch(`/api/vehicle-orders/${vehicleId}/`)
+            .then(response => response.json())
+            .then(data => {
+                const ordersList = document.getElementById('vehicleOrdersList');
+                ordersList.innerHTML = '';
+                
+                if (data.orders && data.orders.length > 0) {
+                    data.orders.forEach(order => {
+                        const row = document.createElement('tr');
+                        const statusBadge = getStatusBadge(order.status);
+                        row.innerHTML = `
+                            <td><strong>${order.code}</strong></td>
+                            <td>${order.customer_name}</td>
+                            <td>${order.customer_address}</td>
+                            <td>${statusBadge}</td>
+                        `;
+                        ordersList.appendChild(row);
+                    });
+                } else {
+                    ordersList.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Không có đơn hàng nào</td></tr>';
+                }
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('viewAllOrdersModal'));
+                modal.show();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Có lỗi xảy ra. Vui lòng thử lại.');
+            });
+    });
+});
+
+function getStatusBadge(status) {
+    let badge = '';
+    if (status === 'PENDING') {
+        badge = '<span class="badge bg-warning">Chờ Duyệt</span>';
+    } else if (status === 'APPROVED') {
+        badge = '<span class="badge bg-success">Đã Duyệt</span>';
+    } else if (status === 'IN_PROGRESS') {
+        badge = '<span class="badge bg-info">Đang Giao</span>';
+    } else if (status === 'DELIVERED') {
+        badge = '<span class="badge bg-success">Đã Giao</span>';
+    } else if (status === 'CANCELLED') {
+        badge = '<span class="badge bg-danger">Đã Hủy</span>';
+    }
+    return badge;
+}
+</script>
+
+{% endblock %}
