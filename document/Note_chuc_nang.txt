@@ -1,0 +1,15 @@
+Chức năng:
+Trang chủ, Bảng giá, Liên hệ, Trang tin tức, Responsive, Map,...
+USER
+- đặt hàng 
++ tìm vị trí, ghim vị trí trên map
++ đặt đơn, tính khoảng cách, giá tiền
++ sau khi đặt đơn thành công có chức năng in đơn
++ tra cứu đơn hàng 
+ADMIN
+-Dashboard
++Quản Lý Phương Tiện, Kho Bãi, Tài Xế, Đơn Lẻ, Đơn Hàng Multi
++xuất excel 
++ thêm/xóa/sửa kho, thêm phương tiện,..
++ chỉnh trạng thái đơn hàng 
++ theo dõi đơn hàng --> chuyển trạng thái đơn
